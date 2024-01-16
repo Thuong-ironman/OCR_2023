@@ -1,11 +1,11 @@
 import numpy as np
 import casadi as ca
-from single_pendulum_dynamics import SinglePendulum
 class OcpSinglePendulum:
 
-    def __init__(self, dt, w_u, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
+    def __init__(self, dt, w_u,w_x, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
         self.dt = dt
         self.w_u = w_u
+        self.w_x = w_x
         self.w_v = w_v
         self.u_min = u_min
         self.u_max = u_max
@@ -36,7 +36,7 @@ class OcpSinglePendulum:
         self.cost = 0
         self.running_costs = [None,]*(N+1)
         for i in range(N+1):
-            self.running_costs[i] = self.w_v * (x[i,0] - x_des[0])**2
+            self.running_costs[i] = self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2
             if(i<N):
                 self.running_costs[i] += self.w_u* u[i]*u[i]
             self.cost += self.running_costs[i] 
@@ -56,7 +56,7 @@ class OcpSinglePendulum:
         if(self.v_min is not None and self.v_max is not None):
             for i in range(N+1):
                 self.opti.subject_to( self.opti.bounded(self.v_min, x[i,1], self.v_max))
-        self.opti.subject_to(x[0,:]==x_init)
+        self.opti.subject_to(x[0,:].T== x_init)
 
         # s_opts = {"max_iter": 100}
         opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
@@ -68,10 +68,11 @@ class OcpSinglePendulum:
 if __name__=="__main__":
     import json
     import matplotlib.pyplot as plt
-    N = 10        # horizon size
-    dt = 1e-1        # time step
+    N = 50        # horizon size
+    dt = 2e-2        # time step
     #x_init = 1.5 # initial state
     w_u = 1e-1    # weight for control input
+    w_x = 1e-1
     w_v = 1e-1    # weight for velocity cost
     # u_min = -1      # min control input
     # u_max = 1       # max control input
@@ -87,7 +88,7 @@ if __name__=="__main__":
     lowerControlBound    = -9.81    # lower bound joint torque
     upperControlBound    = 9.81       # upper bound joint torque
 
-    x_des_final = np.array([0,0])        # final desired joint velocity
+    x_des_final = np.array([0,0])        # final desired joint position and velocity
 
     DATA_FOLDER = 'data/'     # your data folder name
     DATA_FILE_NAME = 'warm_start' # your data file name
@@ -108,33 +109,15 @@ if __name__=="__main__":
     x_min = [lowerPositionLimit, lowerVelocityLimit]
     x_max = [upperPositionLimit, upperVelocityLimit]
     X = np.random.uniform(x_min,x_max, size=(n_ics,n)) 
-    ocp = OcpSinglePendulum(dt, w_u, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
+    ocp = OcpSinglePendulum(dt, w_u,w_x, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
     for i in range(int(n_ics)):
         x0 = X[i,:] # initial state in each iteration X[0] is position, X[1] is velocity
-        # q0 = x0[:nq][0] #initial position
-        # print("Initial position:\n", q0)
-        #Compute initial guess for control inputs
-        # U = np.zeros((N,m))
-        # if(INITIAL_GUESS_FILE is None):
-        #     #use u that compensate gravity
-        #     u0 = 9.81*np.sin(x0[0])
-        #     for j in range(N):
-        #         U[j,:] = u0
-        # else:
-        #     print("Load initial guess from", INITIAL_GUESS_FILE)
-        #     data = np.load(DATA_FOLDER+INITIAL_GUESS_FILE+'.npz') #q=X[:,:nq], v=X[:,nv:], u=U
-        #     U = data['u']
-
         sol = ocp.solve(x0, N,x_des_final)
         #print("Optimal value of x:\n", sol.value(ocp.x))
-
-        # X = np.linspace(-2.2, 2.0, 100)
         costs = [sol.value(ocp.cost[0], [ocp.x==x_val]) for x_val in X[:,0]]
-        # print('i =', i)
-        print('decision variable u', [sol.value(ocp.u[0], [ocp.x==x_val]) for x_val in X[:,0]])
         opt_cost_J = float(np.sum(costs)) # t
         #print("Optimal cost J:\n", opt_cost_J)
-        data.append({"x0":x0, "j_opt":opt_cost_J}) 
+        data.append({"x0":x0.tolist(), "j_opt":opt_cost_J}) 
         if is_plot:
             plt.plot(X, costs)
             for i in range(N+1):
@@ -143,7 +126,7 @@ if __name__=="__main__":
                         'xr', label='x_'+str(i))
             plt.legend()
             plt.show()
-    #print(type(data))
+    print(data)
     with open('test.json', 'w') as json_file:
         json.dump(data, json_file) 
     # print(data)
