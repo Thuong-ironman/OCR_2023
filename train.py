@@ -18,7 +18,7 @@ def tf2np(y):
 
 def get_critic(nx):
     ''' Create the neural network to represent the Q function '''
-    inputs = layers.Input(shape=(nx,1))
+    inputs = layers.Input(shape=(nx,))
     base_layer = 16
     state_out1 = layers.Dense(base_layer, activation="relu")(inputs) 
     state_out2 = layers.Dense(base_layer*2, activation="relu")(state_out1) 
@@ -31,14 +31,15 @@ def get_critic(nx):
     return model
 
 def update(x_batch, target_values):
-    # print(target_values)
+    print('shape of target value',target_values.shape)
     ''' Update the weights of the Q network using the specified batch of data '''
     # all inputs are tf tensors
     with tf.GradientTape() as tape:         
         # Operations are recorded if they are executed within this context manager and at least one of their inputs is being "watched".
         # Trainable variables (created by tf.Variable or tf.compat.v1.get_variable, where trainable=True is default in both cases) are automatically watched. 
         # Compute batch of Values associated to the sampled batch of states
-        V_value = V(x_batch, training=True)                         
+        V_value = V(x_batch, training=True)
+        print('shape of V value',V_value.shape)                         
         # loss function. tf.math.reduce_mean() computes the mean of elements across dimensions of a tensor
         V_loss = tf.math.reduce_mean(tf.math.square(target_values - V_value))
     # Compute the gradients of the loss w.r.t. network's parameters (weights and biases)
