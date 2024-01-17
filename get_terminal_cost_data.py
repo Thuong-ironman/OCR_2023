@@ -1,5 +1,6 @@
 import numpy as np
 import casadi as ca
+import A3_conf as conf
 class OcpSinglePendulum:
 
     def __init__(self, dt, w_u,w_x, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
@@ -68,36 +69,28 @@ class OcpSinglePendulum:
 if __name__=="__main__":
     import json
     import matplotlib.pyplot as plt
-    N = 50        # horizon size
-    dt = 2e-2        # time step
-    #x_init = 1.5 # initial state
-    w_u = 1e-1    # weight for control input
-    w_x = 1e-1
-    w_v = 1e-1    # weight for velocity cost
-    # u_min = -1      # min control input
-    # u_max = 1       # max control input
+    N = conf.N        # horizon size
+    dt = conf.dt        # time step
 
-    nq = 1                              # number of joint position
-    nv = 1                              # number of joint velocity
-    nu = 1                              # number of control
+    w_u = conf.w_u    # weight for control input
+    w_x = conf.w_x
+    w_v = conf.w_v    # weight for velocity cost
 
-    lowerPositionLimit = -np.pi      # min joint position
-    upperPositionLimit = np.pi      # max joint position
-    upperVelocityLimit = 10             # min joint velocity
-    lowerVelocityLimit = -10            # min joint velocity
-    lowerControlBound    = -9.81    # lower bound joint torque
-    upperControlBound    = 9.81       # upper bound joint torque
 
-    x_des_final = np.array([0,0])        # final desired joint position and velocity
+    nq = conf.nq                              # number of joint position
+    nv = conf.nv                              # number of joint velocity
+    nu = conf.nu                              # number of control
 
-    DATA_FOLDER = 'data/'     # your data folder name
-    DATA_FILE_NAME = 'warm_start' # your data file name
-    save_warm_start = 0
-    use_warm_start = 0
-    if use_warm_start:
-        INITIAL_GUESS_FILE = DATA_FILE_NAME
-    else:
-        INITIAL_GUESS_FILE = None
+    lowerPositionLimit = conf.lowerPositionLimit      # min joint position
+    upperPositionLimit = conf.upperPositionLimit      # max joint position
+    
+    lowerVelocityLimit = conf.lowerVelocityLimit            # min joint velocity
+    upperVelocityLimit = conf.upperVelocityLimit             # max joint velocity
+
+    lowerControlBound    = conf.lowerControlBound    # lower bound joint torque
+    upperControlBound    = conf.upperControlBound       # upper bound joint torque
+
+    x_des_final = conf.x_des_final        # final desired joint position and velocity
 
     n = nq + nv #state size
     m = nu      #control size
