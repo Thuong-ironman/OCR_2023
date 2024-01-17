@@ -1,7 +1,7 @@
 import numpy as np
 import casadi as ca
-
-from tensorflow_template import get_critic, tf2np, np2tf
+import A3_conf as conf
+from train import get_critic, tf2np, np2tf
 
 
 from casadi.casadi import SX, MX, DM
@@ -9,9 +9,9 @@ from casadi import fmax, Function, transpose
 
 class OcpSinglePendulum:
 
-    def __init__(self, dt, w_u, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
+    def __init__(self, dt, w_u, w_x, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
         # Load weight for model
-        self.V = get_critic(nx=1)
+        self.V = get_critic(nx=2)
         self.V.load_weights("thuongdc.h5")
 
         self.params = []
@@ -21,9 +21,10 @@ class OcpSinglePendulum:
             else:
                 param = param.T
             self.params.append(MX(DM(param.tolist())))
-
+        
         self.dt = dt
         self.w_u = w_u
+        self.w_x = w_x
         self.w_v = w_v
         self.u_min = u_min
         self.u_max = u_max
@@ -32,14 +33,14 @@ class OcpSinglePendulum:
         self.v_min = v_min
         self.v_max = v_max
 
-        self.m = 1
-        self.l = 1
         self.g = 9.8
 
     def get_value(self, x):
 
         for idx, param in enumerate(self.params):
-
+            # print('iteration',idx)
+            # print('shape of params',param.shape)
+            # print('shape of input', x.shape)
             if idx %2 == 0:
                 x = param @ x
             else:
@@ -49,7 +50,7 @@ class OcpSinglePendulum:
         # x = x * 100
         return x
 
-    def solve(self, x_init,u_init, N, x_des, X_guess=None, U_guess=None):
+    def solve(self, x_init, N, x_des, X_guess=None, U_guess=None):
         self.opti = ca.Opti()
         self.x = self.opti.variable(N+1)
         self.v = self.opti.variable(N+1)
@@ -61,13 +62,13 @@ class OcpSinglePendulum:
 
         if(X_guess is not None):
             for i in range(N+1):
-                self.opti.set_initial(x[i,0], X_guess[i,:])
+                self.opti.set_initial(x[i,:], X_guess[i,:])
         else:
             for i in range(N+1):
-                self.opti.set_initial(x[i,0], x_init)
+                self.opti.set_initial(x[i,:], x_init)
         if(U_guess is not None):
             for i in range(N):
-                self.opti.set_initial(u[i], U_guess[i,:])
+                self.opti.set_initial(u[i], U_guess[i,:][0])
         # else:
         #     for i in range(N):
         #         self.opti.set_initial(u[i],u_init)
@@ -77,13 +78,13 @@ class OcpSinglePendulum:
 
         # Running cost
         for i in range(N):
-            self.running_costs[i] = self.w_v* (x[i,1] - x_des[1]**2)
+            self.running_costs[i] = self.w_x* (x[i,0] - x_des[0])**2 + self.w_v* (x[i,1] - x_des[1])**2
             if(i<N-1):
                 self.running_costs[i] += self.w_u * u[i]*u[i]
             self.cost += self.running_costs[i] 
         
         #Terminal cost
-        terminal_cost = self.get_value(x[-1])
+        terminal_cost = self.get_value(x[-1,:].T)
         self.running_costs[-1] = terminal_cost
         self.cost += terminal_cost
         
@@ -91,7 +92,7 @@ class OcpSinglePendulum:
 
         for i in range(N):
             self.opti.subject_to(x[i+1,0] ==  self.dt * x[i,1])
-            self.opti.subject_to(x[i+1,1] ==  self.dt * (u[i] + self.m * self.g * self.l * ca.sin(x[i,0])) / (self.m * self.l*self.l))
+            self.opti.subject_to(x[i+1,1] ==  self.dt * (u[i] + self.g * ca.sin(x[i,0])))
             #self.opti.subject_to( x[i]==x[i-1] + self.dt*u[i-1] )
         if(self.u_min is not None and self.u_max is not None):
             for i in range(N):
@@ -101,8 +102,8 @@ class OcpSinglePendulum:
             for i in range(N+1):
                 self.opti.subject_to( self.opti.bounded(self.v_min, x[i,1], self.v_max))
 
-        self.opti.subject_to(x[0,0]==x_init)
-        self.opti.subject_to(u[0]==u_init)
+        self.opti.subject_to(x[0,:].T==x_init)
+
 
         # s_opts = {"max_iter": 100}
         opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
@@ -115,36 +116,27 @@ if __name__=="__main__":
     import json
     import pandas as pd
     import matplotlib.pyplot as plt
-    N = 100       # horizon size
-    dt = 1e-2        # time step
-    #x_init = 1.5 # initial state
-    w_u = 1e-1    # weight for control input
-    w_v = 1    #weight for velocity cost
+    N = conf.N       # horizon size
+    dt = conf.dt        # time step
 
-    # u_min = -1      # min control input
-    # u_max = 1       # max control input
+    w_u = conf.w_u    # weight for control input
+    w_v = conf.w_v    #weight for velocity cost
+    w_x = conf.w_x    #weight for position cost
 
-    nq = 1  #number of joint position
-    nv = 1  #number of joint velocity
-    nu = 1  #number of control
+    nq = conf.nq  #number of joint position
+    nv = conf.nv  #number of joint velocity
+    nu = conf.nu  #number of control
 
-    lowerPositionLimit = 3/4*np.pi      # min joint position
-    upperPositionLimit = 5/4*np.pi      # max joint position
-    upperVelocityLimit = 10             # min joint velocity
-    lowerVelocityLimit = -10            # min joint velocity
-    lowerControlBound    = -9.81    # lower bound joint torque
-    upperControlBound    = 9.81       # upper bound joint torque
+    lowerPositionLimit = conf.lowerPositionLimit     # min joint position
+    upperPositionLimit = conf.upperPositionLimit      # max joint position
+    
+    lowerVelocityLimit = conf.lowerVelocityLimit            # min joint velocity
+    upperVelocityLimit = conf.upperVelocityLimit             # max joint velocity
+
+    lowerControlBound    = conf.lowerControlBound    # lower bound joint torque
+    upperControlBound    = conf.upperControlBound       # upper bound joint torque
 
     x_des_final = np.array([0,0])  #final desired joint velocity
-
-    DATA_FOLDER = 'data/'     # your data folder name
-    DATA_FILE_NAME = 'warm_start' # your data file name
-    save_warm_start = 0
-    use_warm_start = 0
-    if use_warm_start:
-        INITIAL_GUESS_FILE = DATA_FILE_NAME
-    else:
-        INITIAL_GUESS_FILE = None
     
     n = nq + nv #state size
     m = nu  #control size
@@ -157,34 +149,24 @@ if __name__=="__main__":
     # X = np.linspace(-2.2, 2.0, 100)
 
     #Start MPC
-    q0 = np.pi + np.pi/8 # Start at fixed state
+    x0 = np.array([np.pi/2, 0]) # Start at fixed state
     #X = np.random.uniform(lowerPositionLimit, upperPositionLimit, size =(n_ics, n))
-    ocp = OcpSinglePendulum(dt, w_u, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
+    ocp = OcpSinglePendulum(dt, w_u,w_x, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
 
 
-    U = np.zeros((N,m))
-    if(INITIAL_GUESS_FILE is None):
-            #use u that compensate gravity
-        u0 = 9.81*np.sin(q0)
-        for j in range(N):
-            U[j,:] = u0
-    else:
-        print("Load initial guess from", INITIAL_GUESS_FILE)
-        data = np.load(DATA_FOLDER + INITIAL_GUESS_FILE+'.npz')
-        U = data['u']
-    print('u',U)
-    x_opt = []
-    for i in range(N+1):
-        sol = ocp.solve(q0,u0, N, x_des_final)
-        x_opt.append(sol.value(ocp.x[:,0]))
-        u_opt = sol.value(ocp.u[0])
+    U = np.zeros((N,m)) #initial control input
+
+    x = np.zeros((N,n))
+    for i in range(N):
+        x[0,:] = x0 #initial state
+        sol = ocp.solve(x[i,:], N, x_des_final,U_guess=U) #solve ocp with initial guess state x and u
+
+        u_opt = sol.value(ocp.u[0]) # get the first optimal control input
         u_res = u_opt
-        next_states_pred = sol.value(ocp.x[:,0])
-        print(sol.value(ocp.u))
-        #t = [i*dt for i in range(N+1)]
-        print('ok', u0)
-        i = i+1
-        print('count',i)
+        x[i+1,0] = dt*x[i,1] #dynamics
+        x[i+1,1] = dt * (u_res + 9.81 * ca.sin(x[i,0])) # apply the first optimal control input to get next state
+        U = np.pad(U[1:N], (0, 1), 'constant')
+
     # print('x',x_opt)
     #print('u',u)
     #print('t',t)
