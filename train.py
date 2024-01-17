@@ -18,7 +18,7 @@ def tf2np(y):
 
 def get_critic(nx):
     ''' Create the neural network to represent the Q function '''
-    inputs = layers.Input(shape=(nx))
+    inputs = layers.Input(shape=(nx,1))
     base_layer = 16
     state_out1 = layers.Dense(base_layer, activation="relu")(inputs) 
     state_out2 = layers.Dense(base_layer*2, activation="relu")(state_out1) 
@@ -48,7 +48,7 @@ def update(x_batch, target_values):
     print(V_loss)
 
 if __name__ == "__main__":
-    nx = 1
+    nx = 2
     nu = 1
     VALUE_LEARNING_RATE = 2e-3
     num_eps = 100
@@ -61,20 +61,19 @@ if __name__ == "__main__":
     import pandas as pd
     data = json.load(open("test.json"))
     df = pd.DataFrame(data)
-    x_batch = df["x0"].to_numpy()
+    x_batch = np.array(df["x0"].to_list())
     x_label = df["j_opt"].to_numpy()
-
     # Define model
     V = get_critic(nx)
     V.summary()
-
+    print('x_label', np2tf(x_label).shape)
     # Set optimizer specifying the learning rates
     optimizer = tf.keras.optimizers.Adam(VALUE_LEARNING_RATE)
 
     for eps in range(num_eps):
-        update(np2tf(x_batch), np2tf(x_label))
+        update(np2tf(x_batch.T), np2tf(x_label))
 
-    pred_vals = V(np2tf(x_batch), training=False)
+    pred_vals = V(np2tf(x_batch.T), training=False)
     print(pred_vals.shape)
     pred_np = tf2np(pred_vals)
     print(np.mean((pred_np - x_label)**2))
