@@ -157,25 +157,32 @@ if __name__=="__main__":
     U = np.zeros((N,m)) #initial control input
 
     x = np.zeros((N,n))
+    x_opt = []
     for i in range(N):
         x[0,:] = x0 #initial state
         sol = ocp.solve(x[i,:], N, x_des_final,U_guess=U) #solve ocp with initial guess state x and u
-
+        x_opt.append(sol.value(ocp.x[0,:]))
+        print('state x',sol.value(ocp.x[0,:]))
+        print(sol.value(ocp.cost[0], [ocp.x==sol.value(ocp.x[0,:])]))
         u_opt = sol.value(ocp.u[0]) # get the first optimal control input
         u_res = u_opt
-        x[i+1,0] = dt*x[i,1] #dynamics
-        x[i+1,1] = dt * (u_res + 9.81 * ca.sin(x[i,0])) # apply the first optimal control input to get next state
+        if i < N-1:
+            x[i+1,0] = dt*x[i,1] #dynamics
+            x[i+1,1] = dt * (u_res + 9.81 * ca.sin(x[i,0])) # apply the first optimal control input to get next state
         U = np.pad(U[1:N], (0, 1), 'constant')
-
+        print(i)
+    print('x_opt size',np.array(x_opt))
+    t = [i for i in range(N)]
+    # plt.imshow()
     # print('x',x_opt)
     #print('u',u)
     #print('t',t)
         
-    # plt.plot(t, x_opt, 'xr',label='state x')
+    plt.plot(t, x_opt, 'xr',label='state x')
     # #plt.stairs(u,t)
-    # plt.xlabel("Time")
-    # plt.legend()
-    # plt.show()
+    plt.xlabel("Time")
+    plt.legend()
+    plt.show()
         #costs = [sol.value(ocp.cost[0], [ocp.x==x_val]) for x_val in X[:,0]]
         #opt_cost_J = float(np.min(costs))
         #data.append({"x0":q0, "j_opt":opt_cost_J})
