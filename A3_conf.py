@@ -3,9 +3,9 @@ import random
 import numpy as np
 
 N = 200        # horizon size
-dt = 1e-2        # time step
+dt = 2e-2        # time step
 
-w_u = 1e-4    # weight for control input
+w_u = 1e-10    # weight for control input
 w_x = dt
 w_v = dt    # weight for velocity cost
 nq = 1                              # number of joint position
