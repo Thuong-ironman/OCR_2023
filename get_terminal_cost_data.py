@@ -1,70 +1,7 @@
 import numpy as np
 import casadi as ca
 import A3_conf as conf
-class OcpSinglePendulum:
-
-    def __init__(self, dt, w_u,w_x, w_v, u_min=None, u_max=None, x_min = None, x_max = None, v_min = None, v_max = None):
-        self.dt = dt
-        self.w_u = w_u
-        self.w_x = w_x
-        self.w_v = w_v
-        self.u_min = u_min
-        self.u_max = u_max
-        self.x_min = x_min
-        self.x_max = x_max
-        self.v_min = v_min
-        self.v_max = v_max
-
-        self.g = 9.8
-    def solve(self, x_init, N, x_des, X_guess=None, U_guess=None):
-        self.opti = ca.Opti()
-        self.x = self.opti.variable(N+1)
-        self.v = self.opti.variable(N+1)
-        self.X = ca.horzcat(self.x,self.v)
-        self.u = self.opti.variable(N)
-        x = self.X
-        u = self.u
-        if(X_guess is not None):
-            for i in range(N+1):
-                self.opti.set_initial(x[i,:], X_guess[i,:])
-        else:
-            for i in range(N+1):
-                self.opti.set_initial(x[i,:], x_init)
-        if(U_guess is not None):
-            for i in range(N):
-                self.opti.set_initial(u[i], U_guess[i,:])
-
-        self.cost = 0
-        self.running_costs = [None,]*(N+1)
-        for i in range(N+1):
-            self.running_costs[i] = self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2
-            if(i<N):
-                self.running_costs[i] += self.w_u* u[i]*u[i]
-            self.cost += self.running_costs[i] 
-        
-        self.opti.minimize(self.cost)
-
-        for i in range(N):
-            self.opti.subject_to(x[i+1,0] == self.dt * x[i,1])
-            self.opti.subject_to(x[i+1,1] == self.dt * (u[i] + self.g * ca.sin(x[i,0])))
-            #self.opti.subject_to( x[i+1]==x[i] + self.dt*u[i] )
-        if(self.u_min is not None and self.u_max is not None):
-            for i in range(N):
-                self.opti.subject_to( self.opti.bounded(self.u_min, u[i], self.u_max))
-        # if(self.x_min is not None and self.x_max is not None):
-        #     for i in range(N+1):
-        #         self.opti.subject_to( self.opti.bounded(self.x_min, x[i,0], self.x_max))
-        if(self.v_min is not None and self.v_max is not None):
-            for i in range(N+1):
-                self.opti.subject_to( self.opti.bounded(self.v_min, x[i,1], self.v_max))
-        self.opti.subject_to(x[0,:].T== x_init)
-
-        # s_opts = {"max_iter": 100}
-        opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
-        self.opti.solver("ipopt", opts) #, s_opts)
-
-        return self.opti.solve()
-
+from OCP_SinglePendulum import OcpSinglePendulum
 
 if __name__=="__main__":
     import json
@@ -105,7 +42,8 @@ if __name__=="__main__":
     ocp = OcpSinglePendulum(dt, w_u,w_x, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
     for i in range(int(n_ics)):
         x0 = X[i,:] # initial state in each iteration X[0] is position, X[1] is velocity
-        sol = ocp.solve(x0, N,x_des_final)
+        sol = ocp.OCP_setup(x0, N,x_des_final)
+        sol = ocp.solve()
         #print("Optimal value of x:\n", sol.value(ocp.x))
         costs = [sol.value(ocp.cost[0], [ocp.x==x_val]) for x_val in X[:,0]]
         opt_cost_J = float(np.sum(costs)) # t
