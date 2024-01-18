@@ -71,7 +71,7 @@ class OcpSinglePendulum:
             for i in range(N+1):
                 self.opti.subject_to( self.opti.bounded(self.v_min, x[i,1], self.v_max))
         self.opti.subject_to(x[0,:].T== x_init)
-
+        self.opti.subject_to(x[-1,:] == x[N-1,:]) #add hard constraints on the final state
         # s_opts = {"max_iter": 100}
         opts = {'ipopt.print_level': 0, 'print_time': 0, 'ipopt.sb': 'yes'}
         self.opti.solver("ipopt", opts) #, s_opts)
