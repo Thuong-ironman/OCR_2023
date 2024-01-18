@@ -5,7 +5,7 @@ import numpy as np
 N = 200        # horizon size
 dt = 1e-2        # time step
 
-w_u = 1e-8    # weight for control input
+w_u = 1e-4    # weight for control input
 w_x = dt
 w_v = dt    # weight for velocity cost
 nq = 1                              # number of joint position
@@ -25,7 +25,7 @@ lowerPositionLimit = -np.pi      # min joint position
 upperPositionLimit = np.pi      # max joint position
 upperVelocityLimit = 10             # min joint velocity
 lowerVelocityLimit = -10            # min joint velocity
-lowerControlBound    = -9.81    # lower bound joint torque
-upperControlBound    = 9.81       # upper bound joint torque
+lowerControlBound    = -9.8   # lower bound joint torque
+upperControlBound    = 9.8    # upper bound joint torque
 
 x_des_final = np.array([0,0])        # final desired joint position and veloci
