@@ -45,7 +45,7 @@ if __name__=="__main__":
     # X = np.linspace(-2.2, 2.0, 100)
 
     #Start MPC
-    x0 = np.array([np.pi/2, 0]) # Start at fixed state
+    x0 = np.array([np.pi/2, -3]) # Start at fixed state
     #X = np.random.uniform(lowerPositionLimit, upperPositionLimit, size =(n_ics, n))
     ocp = OcpSinglePendulumWithNNCost(dt, w_u,w_x, w_v, lowerControlBound, upperControlBound, lowerPositionLimit,upperPositionLimit,lowerVelocityLimit,upperVelocityLimit)
 
@@ -65,8 +65,8 @@ if __name__=="__main__":
         print('u optimal', u_opt)
         u_res = u_opt
         if i < N-1:
-            x[i+1,0] = dt*x[i,1] #dynamics
-            x[i+1,1] = dt * (u_res + 9.81 * ca.sin(x[i,0])) # apply the first optimal control input to get next state
+            x[i+1,0] = x[i,0] + dt*x[i,1] #dynamics
+            x[i+1,1] = x[i,1] + dt * (u_res + 9.81 * ca.sin(x[i,0])) # apply the first optimal control input to get next state
         U = np.pad(U[1:N], (0, 1), 'constant')
         print(i)
     print('x_opt size',np.array(x_opt))
