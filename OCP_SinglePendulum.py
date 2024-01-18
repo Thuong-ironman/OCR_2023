@@ -28,7 +28,7 @@ class OcpSinglePendulum:
             """
             running cost function = 
             """
-            running_costs[i] = 0*self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2 
+            running_costs[i] = self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2 
             if(i<N):
                 running_costs[i] += self.w_u* u[i]*u[i]
             cost += running_costs[i] 
@@ -51,15 +51,15 @@ class OcpSinglePendulum:
                 self.opti.set_initial(x[i,:], x_init)
         if(U_guess is not None):
             for i in range(N):
-                self.opti.set_initial(u[i], U_guess[i,:])
+                self.opti.set_initial(u[i], U_guess[i,:][0])
 
         self.cost = self.objective_cost(N,x,x_des,u)
 
         self.opti.minimize(self.cost)
 
         for i in range(N):
-            self.opti.subject_to(x[i+1,0] == self.dt * x[i,1])
-            self.opti.subject_to(x[i+1,1] == self.dt * (u[i] + self.g * ca.sin(x[i,0])))
+            self.opti.subject_to(x[i+1,0] == x[i,0] + self.dt * x[i,1])
+            self.opti.subject_to(x[i+1,1] == x[i,1] + self.dt * (u[i] + self.g * ca.sin(x[i,0])))
             #self.opti.subject_to( x[i+1]==x[i] + self.dt*u[i] )
         if(self.u_min is not None and self.u_max is not None):
             for i in range(N):
@@ -114,14 +114,14 @@ class OcpSinglePendulumWithNNCost(OcpSinglePendulum):
             """
             running cost function = 
             """
-            running_costs[i] = 0*self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2 
+            running_costs[i] = self.w_x * (x[i,0] - x_des[0])**2 + self.w_v * (x[i,1] - x_des[1])**2 
             if(i<N):
                 running_costs[i] += self.w_u* u[i]*u[i]
             cost += running_costs[i] 
         cost += self.w_v*(x[N,1])**2
         #Terminal cost
-        terminal_cost = self.get_value(x[-1,:].T)
-        running_costs[-1] = terminal_cost
-        cost += terminal_cost
+        # terminal_cost = self.get_value(x[-1,:].T)
+        # running_costs[-1] = terminal_cost
+        # cost += terminal_cost
         return cost
     
